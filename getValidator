@@ -1,0 +1,21 @@
+#!/bin/bash
+# getPub.sh
+# This script downloads the latest version of the FHIR IG Publisher and copies it to the input-cache folder of each IG in the specified directory.
+# Usage: ./getValidator <directory>
+# Example: ./getValidatory ~/jar 
+
+
+source=https://github.com/hapifhir/org.hl7.fhir.core/releases/latest/download/validator_cli.jar
+if [[ "$#" == "1" ]]; then
+    rootdir="$1"
+else
+    rootdir="$HOME/jar"
+fi 
+# Check if the directory exists
+if [ ! -d "$rootdir" ]; then
+    echo "Directory $rootdir does not exist."
+    exit 1
+fi
+igrootdir="$HOME/Development/hl7au"
+cd $igrootdir
+curl -L $source -o "$rootdir/validator_cli.jar" --create-dirs

@@ -1,0 +1,50 @@
+#!/bin/bash
+# getPub.sh
+# This script downloads the latest version of the FHIR IG Publisher and soft links it in the input-cache folder of each IG in the specified directory.
+# Usage: ./getPub.sh <directory>
+# Example: ./getPub.sh ~/Development/hl7au 
+
+
+pubsource=https://github.com/HL7/fhir-ig-publisher/releases/latest/download/
+publisher_jar=publisher.jar
+dlurl=$pubsource$publisher_jar
+if [[ "$#" == "1" ]]; then
+    igrootdir="$1"
+else
+    igrootdir="$HOME/Development/hl7au"
+fi 
+# Check if the directory exists
+if [ ! -d "$igrootdir" ]; then
+    echo "Directory $igrootdir does not exist."
+    exit 1
+fi
+cd $igrootdir
+curl -L $dlurl -o "./publisher/$publisher_jar" --create-dirs
+
+## -- get version
+echo "Publisher version..."
+java -jar "$igrootdir/publisher/publisher.jar" -v
+
+## For each folder in $igrootdir, create soft link to publisher in input-cache
+echo "Scanning directories in $igrootdir for input-cache folders..."
+for d in $(find . -maxdepth 1 -type d ); do
+    echo "Checking directory: $d"
+    input_cache_dir="$d/input-cache"
+    if [ -d "$input_cache_dir" ]; then
+        echo "Found input-cache directory: $input_cache_dir"
+        # Remove any existing physical publisher.jar file
+        if [ -f "$input_cache_dir/$publisher_jar" ] && [ ! -L "$input_cache_dir/$publisher_jar" ]; then
+            echo "Removing physical $publisher_jar from $input_cache_dir"
+            rm "$input_cache_dir/$publisher_jar"
+        fi
+        # Create soft link to the centralized publisher.jar
+        if [ ! -L "$input_cache_dir/$publisher_jar" ]; then
+            echo "Creating soft link in $input_cache_dir"
+            ln -s "$igrootdir/publisher/$publisher_jar" "$input_cache_dir/$publisher_jar"
+        else
+            echo "Soft link already exists in $input_cache_dir"
+        fi
+    else
+        echo "No input-cache directory found in $d"
+    fi
+done

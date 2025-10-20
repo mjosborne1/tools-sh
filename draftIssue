@@ -1,0 +1,11 @@
+#!/bin/bash
+# draftIssue
+# This script creates a draft github issue in the requested hl7au FHIR IG project
+# Usage: draftIssue projectId "Terminology page issues" "Fix the following: 1. DocumentReferenceStatus 2. xyz"
+# Example: draftIssue 10 
+if [[ $# != 3 ]]; then
+    echo "Usage: draftIssue projectId title body"
+    echo "   valid projectIds... 10 = ereq, 24 = au core, 20 = AU PS B for C, 25 = AU PS B for WS" 
+    exit 1
+fi
+gh project item-create "$1" --owner hl7au --title "$2" --body "$3"

@@ -1,0 +1,32 @@
+#!/bin/sh
+
+#
+# valTests 
+# 
+# This script Validates json resources in a folder
+# Usage: ./getValidator <indir> <outdir>
+# Example: ./getValidator ~/Development/hl7au/mjo-au-fhir-test-data ~/data/valTests 
+
+
+jar=$HOME/jar/validator_cli.jar
+if [[ "$#" == "2" ]]; then
+    indir="$1"
+    outdir="$2"
+else
+    indir="$HOME/Development/hl7au/mjo-au-fhir-test-data"
+    outdir="$HOME/data/valTests"
+fi 
+# Check if the input directory exists
+if [ ! -d "$indir" ]; then
+    echo "$0: Directory $indir does not exist."
+    exit 1
+fi
+
+# Check if the output directory exists
+if [ ! -d "$outdir" ]; then
+    echo "$0: Creating $outdir"
+    mkdir -p $outdir
+fi
+
+# run validator on the folder (indir)
+java -jar $jar -tx  https://tx.dev.hl7.org.au/fhir -version 4.0.1 -locale en-AU -sct au -txLog $outdir/txlog.txt -output $outdir/results.txt $indir/generated/*.json           
