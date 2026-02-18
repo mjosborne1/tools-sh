@@ -1,0 +1,84 @@
+#!/bin/bash
+#
+# Cleanup script for Mac Storage
+# Removes:
+#   - FHIR IG temp folders
+#   - Python __pycache__ folders 
+# Usage: cleanUp <root_folder>
+
+set -e
+
+# Check if root folder argument is provided
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <root_folder>"
+    echo "Example: $0 ~/projects"
+    exit 1
+fi
+
+ROOT_FOLDER="$1"
+
+# Check if the root folder exists
+if [ ! -d "$ROOT_FOLDER" ]; then
+    echo "Error: Directory '$ROOT_FOLDER' does not exist"
+    exit 1
+fi
+
+echo "Starting cleanup in: $ROOT_FOLDER"
+echo "================================"
+
+# Track totals
+total_removed=0
+total_size=0
+
+# Clean up Python __pycache__ folders
+echo -e "\n🐍 Searching for Python __pycache__ folders..."
+while IFS= read -r -d '' pycache_dir; do
+    size=$(du -sk "$pycache_dir" 2>/dev/null | cut -f1)
+    total_size=$((total_size + size))
+    echo "  Removing: $pycache_dir (${size}KB)"
+    rm -rf "$pycache_dir"
+    total_removed=$((total_removed + 1))
+done < <(find "$ROOT_FOLDER" -type d -name "__pycache__" -print0 2>/dev/null)
+
+if [ $total_removed -gt 0 ]; then
+    echo "  ✓ Removed $total_removed __pycache__ folder(s)"
+else
+    echo "  No __pycache__ folders found"
+fi
+
+# Clean up FHIR IG temp folders
+echo -e "\n📁 Searching for FHIR IG temp folders..."
+ig_removed=0
+ig_size=0
+
+# Look for temp, output, and fsh-generated folders in potential IG directories
+for temp_pattern in "temp" "output" "fsh-generated"; do
+    while IFS= read -r -d '' temp_dir; do
+        # Check if parent directory has IG-related files (sushi-config.yaml, ig.ini, etc.)
+        parent_dir=$(dirname "$temp_dir")
+        if [ -f "$parent_dir/sushi-config.yaml" ] || [ -f "$parent_dir/ig.ini" ] || [ -f "$parent_dir/package.json" ]; then
+            size=$(du -sk "$temp_dir" 2>/dev/null | cut -f1)
+            ig_size=$((ig_size + size))
+            echo "  Removing: $temp_dir (${size}KB)"
+            rm -rf "$temp_dir"
+            ig_removed=$((ig_removed + 1))
+        fi
+    done < <(find "$ROOT_FOLDER" -type d -name "$temp_pattern" -print0 2>/dev/null)
+done
+
+if [ $ig_removed -gt 0 ]; then
+    echo "  ✓ Removed $ig_removed FHIR IG temp folder(s)"
+else
+    echo "  No FHIR IG temp folders found"
+fi
+
+# Summary
+echo -e "\n================================"
+echo "Cleanup Summary:"
+echo "  - Python cache folders: $total_removed (${total_size}KB)"
+echo "  - FHIR IG temp folders: $ig_removed (${ig_size}KB)"
+total_all=$((total_removed + ig_removed))
+total_all_size=$((total_size + ig_size))
+echo "  - Total removed: $total_all folders (~$((total_all_size / 1024))MB)"
+echo "✓ Cleanup complete!"
+
