@@ -1,0 +1,5 @@
+for f in "$@"
+do
+    # Decodes the file and opens the result in TextMate
+    base64 -d < "$f" | mate
+done

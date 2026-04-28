@@ -4,18 +4,38 @@
 # valTests 
 # 
 # This script Validates json resources in a folder
-# Usage: ./getValidator <indir> <outdir>
-# Example: ./getValidator ~/Development/hl7au/mjo-au-fhir-test-data ~/data/valTests 
+# Usage: ./valTests
+# Example: ./valTests ~/Development/hl7au/mjo-au-fhir-test-data ~/data/valTests AU 
 
 
 jar=$HOME/jar/validator_cli.jar
-if [[ "$#" == "2" ]]; then
+region="AU"
+if [[ "$#" == "2" || "$#" == "3" ]]; then
     indir="$1"
     outdir="$2"
+    if [[ "$#" == "3" ]]; then
+        region="$3"
+    fi
 else
-    indir="$HOME/Development/hl7au/mjo-au-fhir-test-data"
-    outdir="$HOME/data/valTests"
+    indir="$HOME/data/valTests/json"
+    outdir="$HOME/data/valTests/results"
 fi 
+
+if [[ "$region" != "AU" && "$region" != "US" ]]; then
+    echo "$0: Region must be AU or US."
+    exit 1
+fi
+
+if [[ "$region" == "AU" ]]; then
+    tx_url="https://tx.hl7.org.au/fhir"
+    locale="en-AU"
+    sct="au"
+else
+    tx_url="https://tx.fhir.org/r4"
+    locale="en-US"
+    sct="us"
+fi
+
 # Check if the input directory exists
 if [ ! -d "$indir" ]; then
     echo "$0: Directory $indir does not exist."
@@ -29,4 +49,9 @@ if [ ! -d "$outdir" ]; then
 fi
 
 # run validator on the folder (indir)
-java -jar $jar -tx  https://tx.dev.hl7.org.au/fhir -version 4.0.1 -locale en-AU -sct au -txLog $outdir/txlog.txt -output $outdir/results.txt $indir/generated/*.json           
+json_count=$(ls -1 $indir/*.json 2>/dev/null | wc -l | tr -d ' ')
+start_time=$(date +%s)
+java -jar $jar -tx $tx_url -version 4.0.1 -locale $locale -sct $sct  -txLog $outdir/txlog.txt -output $outdir/results.html $indir/*.json
+end_time=$(date +%s)
+elapsed=$((end_time - start_time))
+echo "Validation of ${json_count} file(s) completed in ${elapsed}s"

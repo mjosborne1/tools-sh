@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# findInFiles - search files matching include phrases and not matching exclude phrases
+# Reads phrases from a .ini file with [include] and [exclude] sections
+
+INI_FILE="${1:-findInFiles.ini}"
+
+if [[ ! -f "$INI_FILE" ]]; then
+  echo "Error: INI file '$INI_FILE' not found" >&2
+  exit 1
+fi
+
+# Parse the ini file into include and exclude arrays
+include_phrases=()
+exclude_phrases=()
+current_section=""
+
+while IFS= read -r line || [[ -n "$line" ]]; do
+  # Skip empty lines and comments
+  [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+  # Detect section headers
+  if [[ "$line" =~ ^\[include\]$ ]]; then
+    current_section="include"
+  elif [[ "$line" =~ ^\[exclude\]$ ]]; then
+    current_section="exclude"
+  elif [[ -n "$current_section" ]]; then
+    if [[ "$current_section" == "include" ]]; then
+      include_phrases+=("$line")
+    elif [[ "$current_section" == "exclude" ]]; then
+      exclude_phrases+=("$line")
+    fi
+  fi
+done < "$INI_FILE"
+
+if [[ ${#include_phrases[@]} -eq 0 ]]; then
+  echo "Error: No include phrases found in '$INI_FILE'" >&2
+  exit 1
+fi
+
+for f in *.*; do
+  match=true
+
+  # All include phrases must be present
+  for phrase in "${include_phrases[@]}"; do
+    if ! rg -q "$phrase" "$f"; then
+      match=false
+      break
+    fi
+  done
+
+  # No exclude phrases may be present
+  if $match; then
+    for phrase in "${exclude_phrases[@]}"; do
+      if rg -q "$phrase" "$f"; then
+        match=false
+        break
+      fi
+    done
+  fi
+
+  if $match; then
+    echo "$f"
+  fi
+done

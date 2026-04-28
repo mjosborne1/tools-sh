@@ -1,0 +1,22 @@
+#!/bin/bash
+# keepalive
+# This script pings an endpoint in a loop to keep it alive
+# Usage: ./keepalive [interval]
+# Example: ./keepalive 120
+
+url1="https://patient-dashboard-t065.onrender.com/airport"
+url2="https://ecl-tester.onrender.com/"
+url3="https://fhir-osbornemj-com.onrender.com/"
+interval="${1:-60}"
+
+echo "Pinging $url every $interval seconds..."
+echo "Press Ctrl+C to stop"
+
+while true; do
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    response=$(curl -s -o /dev/null -w "%{http_code}" "$url1")
+    response=$(curl -s -o /dev/null -w "%{http_code}" "$url2")
+    response=$(curl -s -o /dev/null -w "%{http_code}" "$url3")
+    echo "[$timestamp] GET $url - Status: $response"
+    sleep "$interval"
+done

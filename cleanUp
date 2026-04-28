@@ -72,13 +72,42 @@ else
     echo "  No FHIR IG temp folders found"
 fi
 
+# Clean up large cache folders in ~/Library/Caches
+echo -e "\n🗂️  Searching for large cache folders in ~/Library/Caches..."
+cache_removed=0
+cache_size=0
+CACHE_DIR="$HOME/Library/Caches"
+
+if [ -d "$CACHE_DIR" ]; then
+    while IFS= read -r -d '' cache_folder; do
+        # Get size in KB
+        size=$(du -sk "$cache_folder" 2>/dev/null | cut -f1)
+        # Check if larger than 1MB (1024 KB)
+        if [ "$size" -gt 1024 ]; then
+            cache_size=$((cache_size + size))
+            echo "  Removing: $cache_folder (${size}KB)"
+            rm -rf "$cache_folder"
+            cache_removed=$((cache_removed + 1))
+        fi
+    done < <(find "$CACHE_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
+    
+    if [ $cache_removed -gt 0 ]; then
+        echo "  ✓ Removed $cache_removed large cache folder(s)"
+    else
+        echo "  No cache folders larger than 1MB found"
+    fi
+else
+    echo "  ~/Library/Caches directory not found"
+fi
+
 # Summary
 echo -e "\n================================"
 echo "Cleanup Summary:"
 echo "  - Python cache folders: $total_removed (${total_size}KB)"
 echo "  - FHIR IG temp folders: $ig_removed (${ig_size}KB)"
-total_all=$((total_removed + ig_removed))
-total_all_size=$((total_size + ig_size))
+echo "  - Large cache folders: $cache_removed (${cache_size}KB)"
+total_all=$((total_removed + ig_removed + cache_removed))
+total_all_size=$((total_size + ig_size + cache_size))
 echo "  - Total removed: $total_all folders (~$((total_all_size / 1024))MB)"
 echo "✓ Cleanup complete!"
 

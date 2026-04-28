@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# findHt
+# Search FHIR IG directories for ValueSets that reference healthterminologies.gov.au and print their name and URL.
+
+set -euo pipefail
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "This script requires jq to parse ValueSet JSON." >&2
+  exit 1
+fi
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <ig_directory>" >&2
+  exit 1
+fi
+
+root="$1"
+pattern="healthterminologies.gov.au"
+
+if [[ ! -d "$root" ]]; then
+  echo "Directory not found: $root" >&2
+  exit 1
+fi
+
+tmp=$(mktemp)
+
+while IFS= read -r -d '' file; do
+  if ! grep -qi -- "$pattern" "$file"; then
+    continue
+  fi
+
+  case "$file" in
+    *.json)
+      if jq -e '(.resourceType == "ValueSet") and (.url // "" != "")' "$file" >/dev/null 2>&1; then
+        name=$(jq -r '.name // .title // "(no name)"' "$file")
+        url=$(jq -r '.url' "$file")
+        printf "%s\t%s\n" "$name" "$url" >> "$tmp"
+      fi
+      ;;
+    *.xml)
+      python3 - <<'PY' "$file" >> "$tmp" 2>/dev/null
+import sys
+import xml.etree.ElementTree as ET
+
+path = sys.argv[1]
+try:
+    tree = ET.parse(path)
+    root = tree.getroot()
+    if not root.tag.lower().endswith('valueset'):
+        sys.exit(0)
+
+    def first_value(tag_names):
+        for t in tag_names:
+            el = root.find(f'.//{{*}}{t}')
+            if el is not None:
+                val = el.get('value') or (el.text or '').strip()
+                if val:
+                    return val
+        return None
+
+    url = first_value(['url'])
+    if not url:
+        sys.exit(0)
+
+    name = first_value(['name', 'title']) or '(no name)'
+    print(f"{name}\t{url}")
+except Exception:
+    sys.exit(0)
+PY
+      ;;
+  esac
+done < <(find "$root" -type f \( -name '*.json' -o -name '*.xml' \) -print0)
+
+if [[ ! -s "$tmp" ]]; then
+  echo "No ValueSets referencing $pattern found under $root." >&2
+  rm -f "$tmp"
+  exit 0
+fi
+
+printf "ValueSet Name\tValueSet URL\n"
+sort -u "$tmp"
+rm -f "$tmp"
